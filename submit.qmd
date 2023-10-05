@@ -1,28 +1,136 @@
 ---
-title: ""
-author: ""
+title: "Assignment 02 Submission"
+author: "Sean Kim"
 format:
   html:
     embed-resources: true
 ---
 
-## Quarto
-
-Quarto enables you to weave together content and executable code into a finished document. To learn more about Quarto see <https://quarto.org>.
-
-## Running Code
-
-When you click the **Render** button a document will be generated that includes both content and the output of embedded code. You can embed code like this:
-
 ```{r}
-1 + 1
+library(data.table)
+library(dplyr)
+library(tidyverse)
+library(leaflet)
+
+if (!file.exists("01_chs_individual")) 
+  download.file( 
+    url = "https://raw.githubusercontent.com/USCbiostats/data-science-data/master/01_chs/chs_individual.csv", 
+    destfile = "01_chs_individual", 
+    method = "libcurl", 
+    timeout = 1000 )
+
+
+ind <- fread("01_chs_individual") 
+
+
+
+if (!file.exists("01_chs_regional")) 
+  download.file( 
+    url = "https://raw.githubusercontent.com/USCbiostats/data-science-data/master/01_chs/chs_regional.csv", 
+    destfile = "01_chs_regional", 
+    method = "libcurl", 
+    timeout = 1000 )
+reg <- fread("01_chs_regional")
 ```
 
-You can add options to executable code like this
-
 ```{r}
-#| echo: false
-2 * 2
+reg[, n:= 1:.N, by = .(townname)]
+reg <- reg[n == 1,][, n := NULL]
+
+merged_data <- inner_join(ind, reg, by = "townname")
+duplicate_count <- sum(duplicated(merged_data))
+cat("Number of duplicate rows:", duplicate_count, "\n")
+merged_data <- merged_data[!duplicated(merged_data), ]
+
 ```
 
-The `echo: false` option disables the printing of code (only output is displayed).
+## Question 1 - Merge and Impute missing values
+
+```{r}
+#numeric missing values - replace with mean
+merged_data <- merged_data %>%
+  group_by(male, hispanic) %>%
+  mutate(across(where(is.numeric), ~ifelse(is.na(.), mean(., na.rm = TRUE), .)))
+
+#categorical missing values - replace with mode
+merged_data <- merged_data %>%
+  group_by(male, hispanic) %>%
+  mutate(across(where(is.character), ~ifelse(is.na(.), Mode(.), .)))
+
+```
+
+## Question 2 - New variables
+
+```{r}
+merged_data <- merged_data %>%
+  mutate(obesity_level = cut(bmi, breaks = c(-Inf, 14, 22, 24, Inf), labels = c("Underweight", "Normal", "Overweight", "Obese")))
+
+
+summary_byObLvl <- merged_data %>%
+  group_by(obesity_level) %>%
+  summarise(
+    min_BMI = min(bmi, na.rm = TRUE),
+    max_BMI = max(bmi, na.rm = TRUE),
+    total_observations = n()
+  )
+summary_byObLvl
+```
+
+## Question 3 - smoke gas exposure
+
+```{r}
+merged_data <- merged_data %>%
+  mutate(smoke_gas_exposure = case_when(
+    smoke == 0 & gasstove == 0 ~ "No Exposure",
+    smoke > 0 & gasstove == 0 ~ "Smoke Exposure",
+    smoke == 0 & gasstove > 0 ~ "Gas Exposure",
+    smoke > 0 & gasstove > 0 ~ "Both"
+  ))
+
+head(merged_data)
+
+```
+
+## Question 4 - Summary tables of FEV1
+
+```{r}
+summary_table_town <- merged_data %>%
+  group_by(townname) %>%
+  summarise(
+    avg_FEV = mean(fev, na.rm = TRUE),
+    sd_FEV = sd(fev, na.rm = TRUE)
+  )
+
+summary_table_sex <- merged_data %>%
+  group_by(male) %>%
+  summarise(
+    avg_FEV = mean(fev, na.rm = TRUE),
+    sd_FEV = sd(fev, na.rm = TRUE)
+  )
+
+summary_table_obesity <- merged_data %>%
+  group_by(obesity_level) %>%
+  summarise(
+    avg_FEV = mean(fev, na.rm = TRUE),
+    sd_FEV = sd(fev, na.rm = TRUE)
+  )
+
+summary_table_exposure <- merged_data %>%
+  group_by(smoke_gas_exposure) %>%
+  summarise(
+    avg_FEV = mean(fev, na.rm = TRUE),
+    sd_FEV = sd(fev, na.rm = TRUE)
+  )
+
+print("Summary Table by Town:")
+print(summary_table_town)
+
+print("\nSummary Table by Sex:")
+print(summary_table_sex)
+
+print("\nSummary Table by Obesity Level:")
+print(summary_table_obesity)
+
+print("\nSummary Table by Smoke Gas Exposure:")
+print(summary_table_exposure)
+```
