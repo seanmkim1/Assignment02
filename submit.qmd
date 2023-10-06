@@ -172,7 +172,7 @@ ggplot(merged_data, aes(x = smoke_gas_exposure, y = fev)) +
 
 Exposure to both smoke and gas seems to be associated with a lower FEV compared to just one or the other. There is significant variation between groups, evidenced by overlap in the box plots.
 
-## Question 3: PM2.5 vs FEV? 
+## Question 3: PM2.5 vs FEV?
 
 ```{r}
 summary(merged_data$pm2_5_fr)
@@ -192,7 +192,7 @@ Slight negative association between PM2.5 concentration exposure and FEV (cor = 
 
 # Data Visualization
 
-1.  Facet plot showing scatterplots with regression lines of BMI vs FEV by \"townname\".
+1.  Facet plot showing scatterplots with regression lines of BMI vs FEV by "townname".
 
     ```{r}
     ggplot(merged_data, aes(x = bmi, y = fev))+
@@ -207,8 +207,11 @@ Slight negative association between PM2.5 concentration exposure and FEV (cor = 
 2.  Stacked histograms of FEV by BMI category and FEV by smoke/gas exposure. Use different color schemes than the ggplot default.
 
     ```{r}
+    custom_colors <- c("Underweight" = "lightblue", "Normal" = "forestgreen", "Overweight" = "orange", "Obese" = "red")
+
     ggplot(merged_data, aes(x = fev, fill = obesity_level)) +
       geom_histogram(position = "stack", bins = 30, color = "white") +
+      scale_fill_manual(values = custom_colors) +
       labs(title = "Stacked Histograms of FEV by BMI Category",
            x = "FEV",
            fill = "BMI cat") +
@@ -218,7 +221,12 @@ Slight negative association between PM2.5 concentration exposure and FEV (cor = 
 3.  Barchart of BMI by smoke/gas exposure.
 
     ```{r}
-    ggplot(merged_data, aes(x = smoke_gas_exposure, y = bmi, fill = smoke_gas_exposure)) +
+    bmi_smokegas_data <- merged_data %>%
+      group_by(smoke_gas_exposure) %>%
+      summarize(mean_bmi = mean(bmi))
+    bmi_smokegas_data
+
+    ggplot(bmi_smokegas_data, aes(x = smoke_gas_exposure, y = mean_bmi, fill = smoke_gas_exposure)) +
       geom_bar(stat = "identity") +
       labs(title = "Bar Chart of BMI by Smoke/Gas Exposure",
            x = "Smoke/Gas Exposure",
@@ -263,6 +271,9 @@ Slight negative association between PM2.5 concentration exposure and FEV (cor = 
     ```
 
 ```{r}
+merged_data %>% 
+  mutate(pm2_5_fr = round(pm2_5_fr, 4))
+
 merged_data$pm2_5_fr <- as.factor(merged_data$pm2_5_fr)
 anova_result <- aov(fev ~ pm2_5_fr, data = merged_data)
 summary(anova_result)
@@ -276,4 +287,21 @@ ggplot(merged_data, aes(x = pm2_5_fr, y = fev, color = pm2_5_fr)) +
        x = "PM2.5 Levels",
        y = "Forced Expiratory Volume (mL)")+
   theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+```{r}
+
+FEV_PM2_5_groups <- merged_data %>% 
+  group_by(pm2_5_fr) %>% 
+  summarize(mean_fev = mean(fev))
+FEV_PM2_5_groups
+
+ggplot(FEV_PM2_5_groups, aes(x = pm2_5_fr, y = mean_fev, fill = pm2_5_fr)) + 
+  geom_bar(stat = "identity") +
+  labs(title = "FEV by 2.5 Levels", 
+       x = "PM2.5 Level", 
+       y = "FEV")+
+   theme(axis.text.x = element_text(angle = 45, hjust = 1))
+  
+         
 ```
