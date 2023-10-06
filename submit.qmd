@@ -44,6 +44,8 @@ merged_data <- merged_data[!duplicated(merged_data), ]
 
 ```
 
+# Data Wrangling
+
 ## Question 1 - Merge and Impute missing values
 
 ```{r}
@@ -133,4 +135,145 @@ print(summary_table_obesity)
 
 print("\nSummary Table by Smoke Gas Exposure:")
 print(summary_table_exposure)
+```
+
+# EDA
+
+## Question 1: BMI vs FEV?
+
+```{r}
+summary(merged_data$bmi)
+summary(merged_data$fev)
+
+cor(merged_data$bmi, merged_data$fev, use = "complete.obs")
+
+ggplot(merged_data, aes(x = bmi, y = fev)) +
+  geom_point() +
+  geom_smooth(method = "lm", se = FALSE, color = "blue") +
+  labs(title = "Association between BMI and FEV",
+       x = "BMI",
+       y = "FEV")
+```
+
+Correlation between BMI and FEV = 0.357, indicating every one point increase in BMI is associated with a 0.357 unit increase in FEV.
+
+## Question 2: smoke/gas exposure vs FEV?
+
+```{r}
+summary(merged_data$smoke_gas_exposure)
+summary(merged_data$fev)
+
+ggplot(merged_data, aes(x = smoke_gas_exposure, y = fev)) +
+  geom_boxplot() +
+  labs(title = "Association between Smoke/Gas Exposure and FEV",
+       x = "Smoke/Gas Exposure",
+       y = "FEV")
+```
+
+Exposure to both smoke and gas seems to be associated with a lower FEV compared to just one or the other. There is significant variation between groups, evidenced by overlap in the box plots.
+
+## Question 3: PM2.5 vs FEV? 
+
+```{r}
+summary(merged_data$pm2_5_fr)
+summary(merged_data$fev)
+
+cor(merged_data$pm2_5_fr, merged_data$fev, use = "complete.obs")
+
+ggplot(merged_data, aes(x = pm2_5_fr, y = fev)) +
+  geom_point() +
+  geom_smooth(method = "lm", se = FALSE, color = "green") +
+  labs(title = "Association between PM2.5 Exposure and FEV",
+       x = "PM2.5",
+       y = "FEV")
+```
+
+Slight negative association between PM2.5 concentration exposure and FEV (cor = -0.08). This is reasonable considering PM2.5 is a fine particle that would likely damage the lungs. Increased exposure to PM2.5 should lead to a lower FEV.
+
+# Data Visualization
+
+1.  Facet plot showing scatterplots with regression lines of BMI vs FEV by \"townname\".
+
+    ```{r}
+    ggplot(merged_data, aes(x = bmi, y = fev))+
+             geom_point()+
+             geom_smooth(method = "lm", se = FALSE, color = "blue") + 
+             facet_wrap(~townname, scales = "free")+ 
+             labs(title = "Scatterplots of BMI vs FEV by Town",
+           x = "BMI",
+           y = "FEV")
+    ```
+
+2.  Stacked histograms of FEV by BMI category and FEV by smoke/gas exposure. Use different color schemes than the ggplot default.
+
+    ```{r}
+    ggplot(merged_data, aes(x = fev, fill = obesity_level)) +
+      geom_histogram(position = "stack", bins = 30, color = "white") +
+      labs(title = "Stacked Histograms of FEV by BMI Category",
+           x = "FEV",
+           fill = "BMI cat") +
+      facet_wrap(~smoke_gas_exposure, scales = "free")
+    ```
+
+3.  Barchart of BMI by smoke/gas exposure.
+
+    ```{r}
+    ggplot(merged_data, aes(x = smoke_gas_exposure, y = bmi, fill = smoke_gas_exposure)) +
+      geom_bar(stat = "identity") +
+      labs(title = "Bar Chart of BMI by Smoke/Gas Exposure",
+           x = "Smoke/Gas Exposure",
+           y = "BMI",
+           fill = "Smoke/Gas Exposure")
+    ```
+
+4.  Statistical summary graphs of FEV by BMI and FEV by smoke/gas exposure category.
+
+    ```{r}
+    ggplot(merged_data, aes(x = bmi, y = fev)) + 
+      geom_point()+
+      geom_smooth(method = "lm", se = FALSE)+ 
+      labs(title = "Scatterplot of FEV by BMI with Regression Lines by Smoke/Gas Exposure",
+           x = "BMI",
+           y = "FEV",
+           color = "Smoke/Gas Exposure") +
+      facet_wrap(~smoke_gas_exposure, scales = "free")
+    ```
+
+    Exposure to both smoking and gas stove seems to increase the effect of increasing BMI on increasing FEV.
+
+5.  A leaflet map showing the concentrations of PM2.5 mass in each of the CHS communities.
+
+    ```{r}
+    leaflet(merged_data) %>%
+      addTiles() %>%
+      addCircles(lng = ~lon, lat = ~lat, weight = 5, radius = ~pm2_5_fr * 10, popup = ~paste(townname, "PM2.5: ", pm2_5_fr))
+    ```
+
+6.  Choose a visualization to examine whether PM2.5 mass is associated with FEV.
+
+    ```{r}
+    ggplot(merged_data, aes(x = pm2_5_fr, y = fev))+ 
+      geom_point()+
+      geom_smooth(method = "lm", se = FALSE)+ 
+      labs(title = "Scatterplot of FEV by PM2.5 with Regression Line",
+           x = "PM2.5",
+           y = "FEV")
+
+
+    ```
+
+```{r}
+merged_data$pm2_5_fr <- as.factor(merged_data$pm2_5_fr)
+anova_result <- aov(fev ~ pm2_5_fr, data = merged_data)
+summary(anova_result)
+
+tukey_results <- TukeyHSD(anova_result)
+summary(tukey_results)
+
+ggplot(merged_data, aes(x = pm2_5_fr, y = fev, color = pm2_5_fr)) +
+  geom_boxplot() +
+  labs(title = "Boxplot of FEV by PM2.5 Levels",
+       x = "PM2.5 Levels",
+       y = "Forced Expiratory Volume (mL)")+
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
 ```
